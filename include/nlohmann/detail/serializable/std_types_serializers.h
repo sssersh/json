@@ -9,41 +9,42 @@
 namespace Serialization
 {
     template<typename SerializedType, NonAssociativeContainer T>
-    void deserialize([[maybe_unused]] SerializedType& src,[[maybe_unused]]  T& result)
+    void deserialize(SerializedType& src, T& result)
     {
-//        if constexpr (requires { T().reserve({}); })
-//        {
-//            result.reserve(src.raw().Size());
-//        }
-//
-//        for (auto& i : src.raw().GetArray())
-//        {
-//            JsonNlohmann::SerializedType serializedType { src.getAllocator(), &i };
-//            typename T::value_type val;
-//            deserialize<SerializedType, typename T::value_type>(serializedType, val);
-//            result.push_back(val);
-//        }
+        if constexpr (requires { T().reserve({}); })
+        {
+            result.reserve(src.json.size());
+        }
 
-        // TODO (s.dobychin@vk.team): implement for other containers
+        for (auto& i : src.json)
+        {
+            JsonNlohmann::SerializedType serializedType;
+            serializedType.json = i; //
+            typename T::value_type val;
+            deserialize<SerializedType, typename T::value_type>(serializedType, val);
+            result.push_back(val);
+        }
+
+    // TODO (s.dobychin@vk.team): implement for other containers
     }
 
     template<typename SerializedType, NonAssociativeContainer T>
-    void serialize([[maybe_unused]] const T& src,[[maybe_unused]] SerializedType& result)
+    void serialize(const T& src, SerializedType& result)
     {
-//        result.raw().SetArray();
-//
+        // TODO: implement
 //        if constexpr (requires { T().reserve({}); })
 //        {
 //            result.raw().Reserve(src.size(), *result.getAllocator());
 //        }
-//
-//        for (auto& i : src)
-//        {
-//            SerializedType serialized { result.getAllocator() };
-//            serialize<JsonNlohmann::SerializedType, typename T::value_type>(i, serialized);
-//            result.raw().PushBack(serialized.raw(), *result.getAllocator());
-//            // TODO (s.dobychin@vk.team): implement for other containers
-//        }
+
+        result.json = nlohmann::json::array_t();
+        for (auto& i : src)
+        {
+            SerializedType serialized;
+            serialize<JsonNlohmann::SerializedType, typename T::value_type>(i, serialized);
+            result.json.push_back(serialized.json);
+            // TODO (s.dobychin@vk.team): implement for other containers
+        }
     }
 
     template<typename SerializedType, IsStdOptional SerializableType>

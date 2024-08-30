@@ -5,6 +5,8 @@
 
 namespace Serialization
 {
+    // TODO: тут везде SerializedType заменить на nlohmann::json
+
     template<typename SerializedType, typename SerializableType>
     void serialize(const SerializableType& src, SerializedType& result);
 
