@@ -15,6 +15,9 @@ using nlohmann::json;
 // TODO: тест на имя поля в UTF (в examples тоже наверное добавить)
 // TODO: snake case?
 
+#include <unordered_map>
+#include <set>
+
 #include "nlohmann/serializable.h"
 #include "nlohmann/serializer.h"
 
@@ -71,19 +74,19 @@ namespace
 {
 struct TypeWithContainers : Serialization::JsonNlohmann::Serializable<TypeWithContainers>
 {
+    Serializable<std::array<int, 3>> array = {this, {"array"}};
+    Serializable<std::unordered_map<std::string, int>> map = { this, {"map"} };
+    Serializable<std::set<int>> set = { this, {"set"} };
     Serializable<std::string> str = {this, {"string"}};
     Serializable<std::vector<int>> vector = {this, {"vector"}};
-
-    // TODO (s.dobychin@vk.team): implement other containers
-    // Serializable<std::array<int, 3>> array = { this, { "array_name" } };
-    // Serializable<std::set<std::string>> set = { this, "set_name" };
 };
 }
 
 TEST_CASE("Serialize/deserialize serializable class with containers members" * doctest::test_suite("udt_serializable"))
 {
-    std::string json = R"({"string":"str","vector":[1,2,3]})";
-    std::string emptyJson = R"({"string":"","vector":[]})";
+    std::string json = R"({"array":[1,2,3],"map":{"11":12,"13":14},"set":[4,5,6],"string":"str","vector":[7,8,9]})";
+    std::string empty_json_input = R"({"array":[],"map":{},"set":[],"string":"","vector":[]})";
+    std::string empty_json_result = R"({"array":[0,0,0],"map":{},"set":[],"string":"","vector":[]})";
 
     SECTION("deserialize")
     {
@@ -91,16 +94,33 @@ TEST_CASE("Serialize/deserialize serializable class with containers members" * d
 
         CHECK(*obj.str == "str");
 
+        CHECK(obj.array->at(0) == 1);
+        CHECK(obj.array->at(1) == 2);
+        CHECK(obj.array->at(2) == 3);
+
+        CHECK(obj.map->size() == 2);
+        CHECK((*obj.map)["11"] == 12);
+        CHECK((*obj.map)["13"] == 14);
+
+        CHECK(obj.set->find(4) != obj.set->end());
+        CHECK(obj.set->find(5) != obj.set->end());
+        CHECK(obj.set->find(6) != obj.set->end());
+
         CHECK(obj.vector->size() == 3);
-        CHECK(obj.vector->at(0) == 1);
-        CHECK(obj.vector->at(1) == 2);
-        CHECK(obj.vector->at(2) == 3);
+        CHECK(obj.vector->at(0) == 7);
+        CHECK(obj.vector->at(1) == 8);
+        CHECK(obj.vector->at(2) == 9);
     }
     SECTION("deserialize empty")
     {
-        auto obj = Serialization::deserialize<TypeWithContainers>(emptyJson);
+        auto obj = Serialization::deserialize<TypeWithContainers>(empty_json_input);
 
         CHECK(*obj.str == "");
+        CHECK(obj.array->at(0) == 0);
+        CHECK(obj.array->at(1) == 0);
+        CHECK(obj.array->at(2) == 0);
+        CHECK(obj.map->size() == 0);
+        CHECK(obj.set->size() == 0);
         CHECK(obj.vector->size() == 0);
     }
     SECTION("serialize")
@@ -109,10 +129,21 @@ TEST_CASE("Serialize/deserialize serializable class with containers members" * d
 
         obj.str = "str";
 
+        obj.array->at(0) = 1;
+        obj.array->at(1) = 2;
+        obj.array->at(2) = 3;
+
+        (*obj.map)["11"] = 12;
+        (*obj.map)["13"] = 14;
+
+        obj.set->insert(4);
+        obj.set->insert(5);
+        obj.set->insert(6);
+
         obj.vector->resize(3);
-        obj.vector->at(0) = 1;
-        obj.vector->at(1) = 2;
-        obj.vector->at(2) = 3;
+        obj.vector->at(0) = 7;
+        obj.vector->at(1) = 8;
+        obj.vector->at(2) = 9;
 
         auto res = Serialization::serialize<TypeWithContainers>(obj);
         CHECK(res == json);
@@ -123,7 +154,7 @@ TEST_CASE("Serialize/deserialize serializable class with containers members" * d
 
         auto res = Serialization::serialize<TypeWithContainers>(obj);
 
-        CHECK(res == emptyJson);
+        CHECK(res == empty_json_result);
     }
 }
 

@@ -31,4 +31,16 @@ namespace Serialization
     template<typename T>
     concept IsSharedPtr = std::is_same_v<T, std::shared_ptr<typename T::element_type>>;
 
+    template<typename T>
+    struct array_size;
+
+    template<typename ValueType, std::size_t N>
+    struct array_size<std::array<ValueType, N>>
+    {
+        constexpr static std::size_t value = N;
+    };
+
+    template<typename T>
+    concept IsStdArray = std::is_same_v<T, std::array<typename T::value_type, array_size<T>::value>>;
+
 } // namespace Serialization
