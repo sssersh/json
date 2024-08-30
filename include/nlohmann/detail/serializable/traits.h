@@ -27,6 +27,7 @@ namespace Serialization
     template<typename T>
     concept IsSerializableClass = std::is_base_of_v<ISerializable<typename T::NameType>, T>;
 
+    // TODO: use unique ptr too
     template<typename T>
     concept IsSharedPtr = std::is_same_v<T, std::shared_ptr<typename T::element_type>>;
 

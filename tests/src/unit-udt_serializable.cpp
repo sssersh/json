@@ -328,3 +328,49 @@ TEST_CASE("Serialize/deserialize serializable classes inherited from other seria
         CHECK(res == json);
     }
 }
+
+namespace {
+// TODO: тест на unique_ptr тоже
+struct RecursiveType : Serialization::JsonNlohmann::Serializable<RecursiveType>
+{
+    Serializable<std::shared_ptr<RecursiveType>> recursive = { this, { "recursive" } };
+    Serializable<int> x = { this, { "x" } };
+};
+}
+
+TEST_CASE("Serialize/deserialize serializable classes which contain itself recursively" * doctest::test_suite("udt_serializable"))
+{
+    std::string json = R"({"recursive":{"recursive":{"x":3},"x":2},"x":1})";
+
+    SECTION("deserialize")
+    {
+        auto res = Serialization::deserialize<RecursiveType>(json);
+        CHECK(*res.x == 0x01);
+
+        auto& recursive1 = *(*res.recursive);
+        CHECK(*recursive1.x == 0x02);
+
+        auto& recursive2 = *(*recursive1.recursive);
+        CHECK(*recursive2.x == 0x03);
+
+        CHECK(recursive2.recursive->get() == nullptr);
+    }
+    SECTION("serialize")
+    {
+        RecursiveType obj;
+
+        obj.x = 0x01;
+        obj.recursive = std::make_shared<RecursiveType>();
+
+        auto& recursive1 = *(*obj.recursive);
+        recursive1.x = 0x02;
+        recursive1.recursive = std::make_shared<RecursiveType>();
+
+        auto& recursive2 = *(*recursive1.recursive);
+        recursive2.x = 0x03;
+
+        auto res = Serialization::serialize<RecursiveType>(obj);
+
+        CHECK(res == json);
+    }
+}
