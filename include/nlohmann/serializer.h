@@ -51,11 +51,15 @@ namespace Serialization
     void SerializableClassImpl<JsonNlohmann::SerializedType, JsonNlohmann::NameType>::serialize(ISerializedType& result) const
     {
         auto& typesResult = static_cast<JsonNlohmann::SerializedType&>(result); // NOLINT cppcoreguidelines-pro-type-static-cast-downcast
+        typesResult.json = nlohmann::json::object();
         for (auto member : SerializableClassImpl::serializableMembers)
         {
             JsonNlohmann::SerializedType serializedMember;
             member->serialize(serializedMember);
-            typesResult.json[member->name()] = serializedMember.json;
+            if (!serializedMember.json.is_null())
+            {
+                typesResult.json[member->name()] = serializedMember.json;
+            }
         }
     }
 

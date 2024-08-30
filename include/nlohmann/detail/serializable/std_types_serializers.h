@@ -50,20 +50,20 @@ namespace Serialization
     template<typename SerializedType, IsStdOptional SerializableType>
     void deserialize([[maybe_unused]] SerializedType& src,[[maybe_unused]]  SerializableType& result)
     {
-//        if (!src.raw().IsNull())
-//        {
-//            typename SerializableType::value_type resultValue;
-//            deserialize<SerializedType, typename SerializableType::value_type>(src, resultValue);
-//            result = resultValue;
-//        }
+        if (!src.json.empty())
+        {
+            typename SerializableType::value_type resultValue;
+            deserialize<SerializedType, typename SerializableType::value_type>(src, resultValue);
+            result = resultValue;
+        }
     }
 
     template<typename SerializedType, IsStdOptional SerializableType>
     void serialize([[maybe_unused]] const SerializableType& src,[[maybe_unused]] SerializedType& result)
     {
-//        if (src)
-//        {
-//            serialize<SerializedType, typename SerializableType::value_type>(*src, result);
-//        }
+        if (src)
+        {
+            serialize<SerializedType, typename SerializableType::value_type>(*src, result);
+        }
     }
 } // namespace Serialization

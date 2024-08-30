@@ -12,6 +12,7 @@
 using nlohmann::json;
 
 // UDT - по ходу user defined types (потому что в udl - user-defined literals)
+// TODO: тест на имя поля в UTF (в examples тоже наверное добавить
 
 #include "nlohmann/serializable.h"
 #include "nlohmann/serializer.h"
@@ -55,6 +56,16 @@ struct Nested : JsonNlohmann::Serializable<Nested>
 struct Top : JsonNlohmann::Serializable<Top>
 {
     Serializable<Nested> n = { this, { "nameN" } };
+};
+
+struct NotOptional : JsonNlohmann::Serializable<NotOptional>
+{
+    Serializable<int> a = { this, { "name" } };
+};
+
+struct Optional : JsonNlohmann::Serializable<Optional>
+{
+    Serializable<std::optional<int>> a = { this, { "name" } };
 };
 
 std::string jsonText_nested()
@@ -169,5 +180,48 @@ TEST_CASE("Serialize/deserialize classes, defined as erializable" * doctest::tes
         auto obj = Serialization::deserialize<Serialization::Top>(Serialization::jsonText_nested());
 
         CHECK(*obj.n->m->v == 1.0);
+    }
+    SECTION("deserializeNotOptionalExists")
+    {
+        auto obj = Serialization::deserialize<Serialization::NotOptional>(R"({"name":1})");
+        CHECK(*obj.a == 1);
+    }
+    // TODO: как проверить ASSERT_ANY_THROW?
+//    SECTION("deserializeNotOptionalDoesNotExists")
+//    {
+//        ASSERT_ANY_THROW(Serialization::deserialize<NotOptional>(R"({})"));
+//    }
+    SECTION("deserializeOptionalExists")
+    {
+        auto obj = Serialization::deserialize<Serialization::Optional>(R"({"name":1})");
+        CHECK(obj.a->has_value());
+        CHECK(*obj.a == 1);
+    }
+    SECTION("deserializeOptionalDoesNotExists")
+    {
+        auto obj = Serialization::deserialize<Serialization::Optional>(R"({})");
+        CHECK(!obj.a->has_value());
+    }
+    SECTION("serializeNotOptionaltExists")
+    {
+        Serialization::NotOptional obj;
+        obj.a = 1;
+
+        auto json = Serialization::serialize<Serialization::NotOptional>(obj);
+        CHECK(json == R"({"name":1})");
+    }
+    SECTION("serializeOptionalExists")
+    {
+        Serialization::Optional obj;
+        obj.a = 1;
+
+        auto json = Serialization::serialize<Serialization::Optional>(obj);
+        CHECK(json == R"({"name":1})");
+    }
+    SECTION("serializeOptionalNotExists")
+    {
+        Serialization::Optional obj;
+        auto json = Serialization::serialize<Serialization::Optional>(obj);
+        CHECK(json == R"({})");
     }
 }
