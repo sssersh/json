@@ -19,7 +19,7 @@ namespace Serialization
     concept AssociativeContainer = requires { T().begin(); T().end(); typename T::key_type; typename T::mapped_type; };
 
     template<typename T>
-    concept NonAssociativeContainer = requires { T().begin(); T().end(); } && !(AssociativeContainer<T> || IsStdString<T> || IsStdStringView<T>);
+    concept NonAssociativeContainer = requires { T().begin(); T().end(); } && !(AssociativeContainer<T> || IsStdString<T> || IsStdStringView<T> || std::is_same_v<T, nlohmann::json>);
 
     template<typename T>
     concept IsStdOptional = std::is_same_v<T, std::optional<typename T::value_type>>;

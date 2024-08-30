@@ -66,6 +66,18 @@ namespace Serialization
         }
     }
 
+    template<typename SerializedType>
+    void deserialize(SerializedType& src, nlohmann::json& result)
+    {
+        result = src.json;
+    }
+
+    template<typename SerializedType>
+    void serialize(const nlohmann::json& src, SerializedType& result)
+    {
+        result.json = src;
+    }
+
     template<typename T, typename SerializedType, typename NameType, typename Parent>
     void SerializableMember<T, SerializedType, NameType, Parent>::serialize(ISerializedType& result) const
     {

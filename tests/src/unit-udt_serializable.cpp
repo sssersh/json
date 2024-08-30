@@ -374,3 +374,136 @@ TEST_CASE("Serialize/deserialize serializable classes which contain itself recur
         CHECK(res == json);
     }
 }
+
+namespace
+{
+struct Payload : public Serialization::JsonNlohmann::Serializable<Payload>
+{};
+
+struct Payload1 : public Payload
+{
+    Serializable<std::string> str = { this, { "str" } };
+};
+
+struct Payload2 : public Payload
+{
+    Serializable<int> i = { this, { "int" } };
+};
+
+struct Polymorphic : public Serialization::JsonNlohmann::Serializable<Polymorphic>
+{
+    Serializable<int> type = { this, { "type" } };
+    std::shared_ptr<Payload> payload;
+
+    void deserialize(Serialization::ISerializedType& value) override
+    {
+        SerializableClass::deserialize(value);
+
+        if (*type == 1)
+        {
+            Serialization::JsonNlohmann::SerializedType wrapper;
+            wrapper.json = *payloadRaw;
+            Payload1 p;
+            p.deserialize(wrapper);
+            payload = std::make_shared<Payload1>(std::move(p));
+        }
+        else if (*type == 2)
+        {
+            Serialization::JsonNlohmann::SerializedType wrapper;
+            wrapper.json = *payloadRaw;
+            Payload2 p;
+            p.deserialize(wrapper);
+            payload = std::make_shared<Payload2>(std::move(p));
+        }
+        else
+        {
+            throw std::runtime_error("Incorrect type of Polymorphic type");
+        }
+
+        payloadRaw = {};
+    }
+
+    void serialize(Serialization::ISerializedType& value) const override
+    {
+        Serialization::JsonNlohmann::SerializedType data;
+
+        if (*type == 1)
+        {
+            auto& typed = static_cast<Payload1&>(*payload);
+            typed.serialize(data);
+        }
+        else if (*type == 2)
+        {
+            auto& typed = static_cast<Payload2&>(*payload);
+            typed.serialize(data);
+        }
+        else
+        {
+            throw std::runtime_error("Incorrect type of Polymorphic type");
+        }
+
+        payloadRaw = data.json;
+
+        SerializableClass::serialize(value);
+
+        payloadRaw = {};
+    }
+
+  private:
+    mutable Serializable<nlohmann::json> payloadRaw = { this, { "payload" } };
+};
+} // namespace
+
+// Это в примеры перенести надо, а не в тесты
+
+TEST_CASE("Serialize/deserialize polymorphic serializable class" * doctest::test_suite("udt_serializable"))
+{
+    std::string json_1 = R"({"payload":{"str":"data"},"type":1})";
+    std::string json_2 = R"({"payload":{"int":555},"type":2})";
+
+    SECTION("deserialize subtype 1")
+    {
+        auto res1 = Serialization::deserialize<Polymorphic>(json_1);
+        auto& p1 = static_cast<Payload1&>(*res1.payload);
+
+        CHECK(*res1.type == 1);
+        CHECK(*p1.str == "data");
+    }
+
+    SECTION("deserialize subtype 2")
+    {
+        auto res2 = Serialization::deserialize<Polymorphic>(json_2);
+        auto& p2 = static_cast<Payload2&>(*res2.payload);
+
+        CHECK(*res2.type == 2);
+        CHECK(*p2.i == 555);
+    }
+    SECTION("serialize subtype 1")
+    {
+        Polymorphic p;
+
+        p.type = 1;
+        p.payload = std::make_shared<Payload1>();
+
+        auto& p1 = static_cast<Payload1&>(*p.payload);
+        p1.str = "data";
+
+        auto res1 = Serialization::serialize(p);
+
+        CHECK(res1 == json_1);
+    }
+    SECTION("serialize subtype 2")
+    {
+        Polymorphic p;
+
+        p.type = 2;
+        p.payload = std::make_shared<Payload2>();
+
+        auto& p2 = static_cast<Payload2&>(*p.payload);
+        p2.i = 555;
+
+        auto res2 = Serialization::serialize(p);
+
+        CHECK(res2 == json_2);
+    }
+}
