@@ -42,6 +42,26 @@ struct TypeWithContainers : JsonNlohmann::Serializable<TypeWithContainers>
     // Serializable<std::set<std::string>> set = { this, "set_name" };
 };
 
+struct MostNested : public JsonNlohmann::Serializable<MostNested>
+{
+    Serializable<float> v = { this, { "nameMostNested" } };
+};
+
+struct Nested : JsonNlohmann::Serializable<Nested>
+{
+    Serializable<MostNested> m = { this, { "nameM" } };
+};
+
+struct Top : JsonNlohmann::Serializable<Top>
+{
+    Serializable<Nested> n = { this, { "nameN" } };
+};
+
+std::string jsonText_nested()
+{
+    return R"({"nameN":{"nameM":{"nameMostNested":1.0}}})";
+}
+
 namespace
 {
 std::string json_base_types()
@@ -134,5 +154,20 @@ TEST_CASE("Serialize/deserialize classes, defined as erializable" * doctest::tes
         auto res = Serialization::serialize<Serialization::TypeWithContainers>(obj);
 
         CHECK(res == Serialization::emptyJson_containers());
+    }
+    SECTION("serialize_nested")
+    {
+        Serialization::Top obj;
+        obj.n->m->v = 1.0;
+
+        auto res = Serialization::serialize<Serialization::Top>(obj);
+
+        CHECK(Serialization::jsonText_nested() == res);
+    }
+    SECTION("deserialize_nested")
+    {
+        auto obj = Serialization::deserialize<Serialization::Top>(Serialization::jsonText_nested());
+
+        CHECK(*obj.n->m->v == 1.0);
     }
 }
