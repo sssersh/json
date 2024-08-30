@@ -13,7 +13,7 @@ using nlohmann::json;
 
 // UDT - по ходу user defined types (потому что в udl - user-defined literals)
 // TODO: тест на имя поля в UTF (в examples тоже наверное добавить)
-// Тест для enum - использовать NLOHMANN_JSON_SERIALIZE_ENUM
+// TODO: snake case?
 
 #include "nlohmann/serializable.h"
 #include "nlohmann/serializer.h"
@@ -283,5 +283,48 @@ TEST_CASE("Serialize/deserialize serializable class with enum" * doctest::test_s
 
             CHECK(res == json_false);
         }
+    }
+}
+
+namespace {
+struct MostBase : Serialization::JsonNlohmann::Serializable<MostBase>
+{
+    Serializable<int> mostBase = {this, {"most_base"}};
+};
+
+struct Base : MostBase
+{
+    Serializable<int> base = {this, {"base"}};
+};
+
+struct Derived : Base
+{
+    Serializable<int> derived = {this, {"derived"}};
+};
+}
+
+TEST_CASE("Serialize/deserialize serializable classes inherited from other serializable class" * doctest::test_suite("udt_serializable"))
+{
+    std::string json = R"({"base":2,"derived":3,"most_base":1})";
+
+    SECTION("deserialize")
+    {
+        auto res = Serialization::deserialize<Derived>(json);
+
+        CHECK(*res.derived == 0x03);
+        CHECK(*res.base == 0x02);
+        CHECK(*res.mostBase == 0x01);
+    }
+    SECTION("serialize")
+    {
+        Derived obj;
+
+        obj.derived = 0x03;
+        obj.base = 0x02;
+        obj.mostBase = 0x01;
+
+        auto res = Serialization::serialize(obj);
+
+        CHECK(res == json);
     }
 }
