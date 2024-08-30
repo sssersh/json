@@ -226,3 +226,62 @@ TEST_CASE("Serialize/deserialize serializable class with optional member" * doct
         CHECK(json == empty_json);
     }
 }
+
+namespace
+{
+
+enum Enum
+{
+    False,
+    True
+};
+
+NLOHMANN_JSON_SERIALIZE_ENUM(Enum,
+                             {
+                                 { False, "False" },
+                                 { True, "True" }
+                             })
+
+struct TypeWithEnum : Serialization::JsonNlohmann::Serializable<TypeWithEnum>
+{
+    Serializable<Enum> n = { this, { "enum" } };
+};
+
+}
+
+TEST_CASE("Serialize/deserialize serializable class with enum" * doctest::test_suite("udt_serializable"))
+{
+    std::string json_true = R"({"enum":"True"})";
+    std::string json_false = R"({"enum":"False"})";
+
+    SECTION("deserialize")
+    {
+        {
+            auto res = Serialization::deserialize<TypeWithEnum>(json_true);
+            CHECK(*res.n == Enum::True);
+        }
+
+        {
+            auto res = Serialization::deserialize<TypeWithEnum>(json_false);
+            CHECK(*res.n == Enum::False);
+        }
+    }
+    SECTION("serialize")
+    {
+        TypeWithEnum obj;
+
+        {
+            obj.n = Enum::True;
+            auto res = Serialization::serialize<TypeWithEnum>(obj);
+
+            CHECK(res == json_true);
+        }
+
+        {
+            obj.n = Enum::False;
+            auto res = Serialization::serialize<TypeWithEnum>(obj);
+
+            CHECK(res == json_false);
+        }
+    }
+}
