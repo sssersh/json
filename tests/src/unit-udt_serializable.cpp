@@ -12,14 +12,13 @@
 using nlohmann::json;
 
 // UDT - по ходу user defined types (потому что в udl - user-defined literals)
-// TODO: тест на имя поля в UTF (в examples тоже наверное добавить
+// TODO: тест на имя поля в UTF (в examples тоже наверное добавить)
+// Тест для enum - использовать NLOHMANN_JSON_SERIALIZE_ENUM
 
 #include "nlohmann/serializable.h"
 #include "nlohmann/serializer.h"
 
-namespace Serialization
-{
-struct BaseTypes : JsonNlohmann::Serializable<BaseTypes>
+struct BaseTypes : Serialization::JsonNlohmann::Serializable<BaseTypes>
 {
     Serializable<bool> b = { this, { "bool" } };
 
@@ -33,73 +32,13 @@ struct BaseTypes : JsonNlohmann::Serializable<BaseTypes>
     Serializable<uint64_t> u64 = { this, { "uint64_t" } };
 };
 
-struct TypeWithContainers : JsonNlohmann::Serializable<TypeWithContainers>
+TEST_CASE("Serialize/deserialize serializable class with base types members" * doctest::test_suite("udt_serializable"))
 {
-    Serializable<std::string> str = { this, { "string" } };
-    Serializable<std::vector<int>> vector = { this, { "vector" } };
+    std::string json = R"({"bool":true,"double":2.0,"float":-1.0,"int32_t":-32,"int64_t":-64,"uint32_t":32,"uint64_t":64})";
 
-    // TODO (s.dobychin@vk.team): implement other containers
-    // Serializable<std::array<int, 3>> array = { this, { "array_name" } };
-    // Serializable<std::set<std::string>> set = { this, "set_name" };
-};
-
-struct MostNested : public JsonNlohmann::Serializable<MostNested>
-{
-    Serializable<float> v = { this, { "nameMostNested" } };
-};
-
-struct Nested : JsonNlohmann::Serializable<Nested>
-{
-    Serializable<MostNested> m = { this, { "nameM" } };
-};
-
-struct Top : JsonNlohmann::Serializable<Top>
-{
-    Serializable<Nested> n = { this, { "nameN" } };
-};
-
-struct NotOptional : JsonNlohmann::Serializable<NotOptional>
-{
-    Serializable<int> a = { this, { "name" } };
-};
-
-struct Optional : JsonNlohmann::Serializable<Optional>
-{
-    Serializable<std::optional<int>> a = { this, { "name" } };
-};
-
-std::string jsonText_nested()
-{
-    return R"({"nameN":{"nameM":{"nameMostNested":1.0}}})";
-}
-
-namespace
-{
-std::string json_base_types()
-{
-    return R"({"bool":true,"double":2.0,"float":-1.0,"int32_t":-32,"int64_t":-64,"uint32_t":32,"uint64_t":64})";
-}
-
-std::string json_containers()
-{
-    return R"({"string":"str","vector":[1,2,3]})";
-}
-
-std::string emptyJson_containers()
-{
-    return R"({"string":"","vector":[]})";
-}
-
-} // namespace
-
-} // namespace Serialization
-
-
-TEST_CASE("Serialize/deserialize classes, defined as erializable" * doctest::test_suite("udt"))
-{
-    SECTION("base_serialize")
+    SECTION("serialize")
     {
-        Serialization::BaseTypes obj;
+        BaseTypes obj;
 
         obj.b = true;
         obj.d = 2.0;
@@ -111,11 +50,11 @@ TEST_CASE("Serialize/deserialize classes, defined as erializable" * doctest::tes
 
         auto res = Serialization::serialize(obj);
 
-        CHECK(res == Serialization::json_base_types());
+        CHECK(res == json);
     }
-    SECTION("base_deserialize")
+    SECTION("deserialize")
     {
-        auto obj = Serialization::deserialize<Serialization::BaseTypes>(Serialization::json_base_types());
+        auto obj = Serialization::deserialize<BaseTypes>(json);
 
         CHECK(*obj.b == true);
         CHECK(*obj.d == 2.0);
@@ -126,9 +65,29 @@ TEST_CASE("Serialize/deserialize classes, defined as erializable" * doctest::tes
         CHECK(*obj.u32 == 32);
         CHECK(*obj.u64 == 64);
     }
-    SECTION("deserialize_containers")
+}
+
+namespace
+{
+struct TypeWithContainers : Serialization::JsonNlohmann::Serializable<TypeWithContainers>
+{
+    Serializable<std::string> str = {this, {"string"}};
+    Serializable<std::vector<int>> vector = {this, {"vector"}};
+
+    // TODO (s.dobychin@vk.team): implement other containers
+    // Serializable<std::array<int, 3>> array = { this, { "array_name" } };
+    // Serializable<std::set<std::string>> set = { this, "set_name" };
+};
+}
+
+TEST_CASE("Serialize/deserialize serializable class with containers members" * doctest::test_suite("udt_serializable"))
+{
+    std::string json = R"({"string":"str","vector":[1,2,3]})";
+    std::string emptyJson = R"({"string":"","vector":[]})";
+
+    SECTION("deserialize")
     {
-        auto obj = Serialization::deserialize<Serialization::TypeWithContainers>(Serialization::json_containers());
+        auto obj = Serialization::deserialize<TypeWithContainers>(json);
 
         CHECK(*obj.str == "str");
 
@@ -137,16 +96,16 @@ TEST_CASE("Serialize/deserialize classes, defined as erializable" * doctest::tes
         CHECK(obj.vector->at(1) == 2);
         CHECK(obj.vector->at(2) == 3);
     }
-    SECTION("deserialize_empty_containers")
+    SECTION("deserialize empty")
     {
-        auto obj = Serialization::deserialize<Serialization::TypeWithContainers>(Serialization::emptyJson_containers());
+        auto obj = Serialization::deserialize<TypeWithContainers>(emptyJson);
 
         CHECK(*obj.str == "");
         CHECK(obj.vector->size() == 0);
     }
-    SECTION("serialize_containers")
+    SECTION("serialize")
     {
-        Serialization::TypeWithContainers obj;
+        TypeWithContainers obj;
 
         obj.str = "str";
 
@@ -155,73 +114,115 @@ TEST_CASE("Serialize/deserialize classes, defined as erializable" * doctest::tes
         obj.vector->at(1) = 2;
         obj.vector->at(2) = 3;
 
-        auto res = Serialization::serialize<Serialization::TypeWithContainers>(obj);
-        CHECK(res == Serialization::json_containers());
+        auto res = Serialization::serialize<TypeWithContainers>(obj);
+        CHECK(res == json);
     }
-    SECTION("serialize_empty_containers")
+    SECTION("serialize empty")
     {
-        Serialization::TypeWithContainers obj;
+        TypeWithContainers obj;
 
-        auto res = Serialization::serialize<Serialization::TypeWithContainers>(obj);
+        auto res = Serialization::serialize<TypeWithContainers>(obj);
 
-        CHECK(res == Serialization::emptyJson_containers());
+        CHECK(res == emptyJson);
     }
-    SECTION("serialize_nested")
+}
+
+namespace
+{
+struct MostNested : public Serialization::JsonNlohmann::Serializable<MostNested>
+{
+    Serializable<float> v = {this, {"nameMostNested"}};
+};
+
+struct Nested : Serialization::JsonNlohmann::Serializable<Nested>
+{
+    Serializable<MostNested> m = {this, {"nameM"}};
+};
+
+struct Top : Serialization::JsonNlohmann::Serializable<Top>
+{
+    Serializable<Nested> n = {this, {"nameN"}};
+};
+}
+
+TEST_CASE("Serialize/deserialize serializable class with nested serializable class" * doctest::test_suite("udt_serializable"))
+{
+    std::string json = R"({"nameN":{"nameM":{"nameMostNested":1.0}}})";
+
+    SECTION("serialize")
     {
-        Serialization::Top obj;
+        Top obj;
         obj.n->m->v = 1.0;
 
-        auto res = Serialization::serialize<Serialization::Top>(obj);
+        auto res = Serialization::serialize<Top>(obj);
 
-        CHECK(Serialization::jsonText_nested() == res);
+        CHECK(json == res);
     }
-    SECTION("deserialize_nested")
+    SECTION("deserialize")
     {
-        auto obj = Serialization::deserialize<Serialization::Top>(Serialization::jsonText_nested());
+        auto obj = Serialization::deserialize<Top>(json);
 
         CHECK(*obj.n->m->v == 1.0);
     }
-    SECTION("deserializeNotOptionalExists")
+}
+
+namespace {
+struct NotOptional : Serialization::JsonNlohmann::Serializable<NotOptional>
+{
+    Serializable<int> a = {this, {"name"}};
+};
+
+struct Optional : Serialization::JsonNlohmann::Serializable<Optional>
+{
+    Serializable<std::optional<int>> a = {this, {"name"}};
+};
+}
+
+TEST_CASE("Serialize/deserialize serializable class with optional member" * doctest::test_suite("udt_serializable"))
+{
+    std::string json = R"({"name":1})";
+    std::string empty_json = R"({})";
+
+    SECTION("deserialize not existed optional")
     {
-        auto obj = Serialization::deserialize<Serialization::NotOptional>(R"({"name":1})");
+        auto obj = Serialization::deserialize<NotOptional>(R"({"name":1})");
         CHECK(*obj.a == 1);
     }
-    // TODO: как проверить ASSERT_ANY_THROW?
-//    SECTION("deserializeNotOptionalDoesNotExists")
-//    {
-//        ASSERT_ANY_THROW(Serialization::deserialize<NotOptional>(R"({})"));
-//    }
-    SECTION("deserializeOptionalExists")
+    SECTION("deserialize not existed not optional")
     {
-        auto obj = Serialization::deserialize<Serialization::Optional>(R"({"name":1})");
+        CHECK_THROWS_AS(Serialization::deserialize<NotOptional>(empty_json), std::runtime_error&);
+    }
+    SECTION("deserialize existed optional")
+    {
+        auto obj = Serialization::deserialize<Optional>(json);
         CHECK(obj.a->has_value());
         CHECK(*obj.a == 1);
     }
-    SECTION("deserializeOptionalDoesNotExists")
+    SECTION("deserialize not existed optional")
     {
-        auto obj = Serialization::deserialize<Serialization::Optional>(R"({})");
+        auto obj = Serialization::deserialize<Optional>(empty_json);
         CHECK(!obj.a->has_value());
     }
-    SECTION("serializeNotOptionaltExists")
+    SECTION("serialize existed not optional")
     {
-        Serialization::NotOptional obj;
+        NotOptional obj;
         obj.a = 1;
 
-        auto json = Serialization::serialize<Serialization::NotOptional>(obj);
-        CHECK(json == R"({"name":1})");
+        auto json = Serialization::serialize<NotOptional>(obj);
+        CHECK(json == json);
     }
-    SECTION("serializeOptionalExists")
+    SECTION("serialize existed optional")
     {
-        Serialization::Optional obj;
+        Optional obj;
         obj.a = 1;
 
-        auto json = Serialization::serialize<Serialization::Optional>(obj);
-        CHECK(json == R"({"name":1})");
+        auto json = Serialization::serialize<Optional>(obj);
+        CHECK(json == json);
     }
-    SECTION("serializeOptionalNotExists")
+    SECTION("serialize not existed optional")
     {
-        Serialization::Optional obj;
-        auto json = Serialization::serialize<Serialization::Optional>(obj);
-        CHECK(json == R"({})");
+        Optional obj;
+        auto json = Serialization::serialize<Optional>(obj);
+        CHECK(json == empty_json);
     }
 }
