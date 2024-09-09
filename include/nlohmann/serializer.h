@@ -78,7 +78,7 @@ namespace Serialization
 
             if (!(exists || member->optional()))
             {
-                throw std::runtime_error(std::format("Member {} not found", member->name()));
+                throw std::runtime_error(std::format("{}: member {} not found", className(), member->name()));
             }
 
             JsonNlohmann::SerializedType wrapper;

@@ -1,12 +1,37 @@
 #pragma once
 
-#include <iterator>
-#include <unordered_map>
-#include <unordered_set>
+#include <vector>
 
 #include "i_serializable.h"
 #include "i_serializable_member.h"
-#include "traits.h"
+
+template<typename T>
+constexpr std::size_t check_is_constant_constructible()
+{
+    T obj;
+    return 1;
+}
+
+template<typename T>
+concept IsTrancientConstexprConstructible = requires { std::array<int, check_is_constant_constructible<T>()>(); };
+
+//struct A
+//{
+//    int a = 0;
+//};
+//
+//struct B
+//{
+//    constexpr B() = default;
+//    constexpr ~B()
+//    {
+//        delete a;
+//    }
+//    int* a = new int();
+//};
+//
+//static_assert(IsTrancientConstexprConstructible<A>, "");
+//static_assert(IsTrancientConstexprConstructible<B>, "");
 
 namespace Serialization
 {
@@ -53,15 +78,19 @@ namespace Serialization
         constexpr void registerMember(ISerializableMember<SerializedType, NameType>* member) { serializableMembers.push_back(member); }
 
     protected:
+        virtual std::string className() const = 0;
+
+        template<typename Derived>
+        constexpr static std::size_t getFieldsNumImpl()
+        {
+            Derived obj;
+            return obj.serializableMembers.size();
+        }
+
         template<typename Derived>
         static std::size_t getFieldsNum()
         {
-            static const std::size_t value = []()
-            {
-                Derived obj;
-                return obj.serializableMembers.size();
-            }();
-
+            static const std::size_t value = getFieldsNumImpl<Derived>();
             return value;
         }
 

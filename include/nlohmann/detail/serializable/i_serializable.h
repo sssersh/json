@@ -1,9 +1,6 @@
 #pragma once
 
-#include <vector>
-
 #include "i_serialized_type.h"
-#include "name.h"
 
 namespace Serialization
 {

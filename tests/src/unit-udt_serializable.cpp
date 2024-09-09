@@ -170,6 +170,8 @@ struct Nested : Serialization::JsonNlohmann::Serializable<Nested>
     Serializable<MostNested> m = {this, {"nameM"}};
 };
 
+static_assert(Nested::s == 1, "");
+
 struct Top : Serialization::JsonNlohmann::Serializable<Top>
 {
     Serializable<Nested> n = {this, {"nameN"}};
@@ -318,6 +320,11 @@ TEST_CASE("Serialize/deserialize serializable class with enum" * doctest::test_s
 }
 
 namespace {
+
+// TODO: Базовые классы делать шаблонными (параметр MostDerived)
+// Написать, что можно и не шаблонными делать, но тогда не будет работать вычисление числа полей
+// Для polymorphic тоже
+
 struct MostBase : Serialization::JsonNlohmann::Serializable<MostBase>
 {
     Serializable<int> mostBase = {this, {"most_base"}};
@@ -408,6 +415,8 @@ TEST_CASE("Serialize/deserialize serializable classes which contain itself recur
 
 namespace
 {
+
+// TODO: здесь Payload можно просто объявить, а PayloadX наследовать от Payload и Serializable
 struct Payload : public Serialization::JsonNlohmann::Serializable<Payload>
 {};
 
@@ -481,6 +490,7 @@ struct Polymorphic : public Serialization::JsonNlohmann::Serializable<Polymorphi
     }
 
   private:
+    // TODO: use shared_ptr for support mutability
     mutable Serializable<nlohmann::json> payloadRaw = { this, { "payload" } };
 };
 } // namespace
@@ -538,3 +548,20 @@ TEST_CASE("Serialize/deserialize polymorphic serializable class" * doctest::test
         CHECK(res2 == json_2);
     }
 }
+
+// TODO: сделать структуру, как говорил Саня: чтобы метод deserialize() был приватным, а конструктор объекта
+// принимал строку-json
+// Попробовать при этом сделать, чтобы serializable поля торчали наружу, но их нельзя было изменять
+
+// Может разделить интерфейсы serializable/deserializable
+// В swift-e:
+//  Encodable и Decodable
+//  А Codable - это Encodable & Decodable
+// В С++ можно использовать Serde: serdoble
+
+//
+//  Скорее вот это, ты можешь энкодить в разные сущности (json, xml, бинарная data) используя разные классы для энкодинга (или один и тот же класс, но с разными параметрами). Плюс можно более тонко настроить что-нибудь, например, экранирование кавычек, энкодинг даты и тд
+//  Вообще и декодинг тоже с помощью отдельного класса делается, который передается в конструктор декодируемой структуры
+
+// Таким образом еще удастся избежать того, что сериализатор используется в .h файлах
+// И сериализацию/десериализацию в/из msgpack и остальные форматы lohman можно сделать
